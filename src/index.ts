@@ -22,6 +22,11 @@ interface TextPromptOptions {
   allowEmpty?: boolean;
 }
 
+export interface ManualControlHandlers {
+  onExit: () => void;
+  onAdvance: () => void | Promise<void>;
+}
+
 export class InputManager {
   private readonly stdin: NodeJS.ReadStream | null;
   private readonly stdout: NodeJS.WriteStream | null;
@@ -203,5 +208,34 @@ export class InputManager {
 
       this.rawModeEnabled = false;
     }
+  }
+}
+
+/**
+ * Higher-level helper to bind common manual controls (advance turn, exit)
+ * using InputManager's raw mode handling.
+ */
+export class GameInputController {
+  private readonly inputManager: InputManager;
+
+  constructor(inputManager?: InputManager) {
+    this.inputManager = inputManager ?? new InputManager();
+  }
+
+  public attachManualControls(handlers: ManualControlHandlers): boolean {
+    return this.inputManager.enableRawMode(key => {
+      if (key === '\u001b') {
+        handlers.onExit();
+        return;
+      }
+
+      if (key === '\r' || key === '\n') {
+        void handlers.onAdvance();
+      }
+    });
+  }
+
+  public detachManualControls(): void {
+    this.inputManager.disableRawMode();
   }
 }
